@@ -1,0 +1,83 @@
+package wollumetric;
+import processing.core.*;
+
+public class Line {
+	private static int sliceWidth;
+	public float x;
+	public float z;
+	private float screenXPos;
+	private float projectedHeight;
+	private Wollumetric wollumetric;
+
+	public Line(float lineX, float lineZ, float screenXPos, float projectedHeight, Wollumetric wollumetric) {
+		this.x = lineX;
+		this.z = lineZ;
+		this.screenXPos = screenXPos;
+		this.projectedHeight = projectedHeight;
+		this.wollumetric = wollumetric;
+	}
+
+	/**
+	* Draws on the line.  The two points can be anywhere from 0 to wollumetric.max.y
+	* Numbers outside these bounds get clamped to be within the bounds
+	*
+	* @param  y1	Value 1
+	* @param  y2	Value 2
+	*/
+	public void draw(float y1, float y2) {
+		/* TODO DEBUG */
+		float top = y1 > y2 ? y1 : y2;
+		float bot = top == y1 ? y2 : y1;
+		float clampTop = Math.max(0, Math.min(wollumetric.size.y, top));
+		float clampBot = Math.max(0, Math.min(wollumetric.size.y, bot));
+	    float drawHeight = clampTop - clampBot;
+
+		float rectTop = PApplet.map(clampTop,
+			projectedHeight, 0,
+			0, Wollumetric.pApplet.height);
+		float rectHeight = PApplet.map(drawHeight,
+			0, projectedHeight,
+			0, Wollumetric.pApplet.height);
+
+		PMatrix3D invMatrix;
+		invMatrix = wollumetric.getGfx().modelviewInv.get();
+		invMatrix.apply(wollumetric.getGfx().camera);
+
+		Wollumetric.pApplet.pushMatrix();
+		Wollumetric.pApplet.pushStyle();
+			Wollumetric.pApplet.applyMatrix(invMatrix);
+			Wollumetric.pApplet.noStroke();
+			Wollumetric.pApplet.rect(this.screenXPos, rectTop, Line.sliceWidth, rectHeight);
+		Wollumetric.pApplet.popStyle();
+		Wollumetric.pApplet.popMatrix();
+	}
+
+	public static void setSliceWidth(int inSliceWidth) {
+		Line.sliceWidth = inSliceWidth;
+	}
+
+	public void renderMap(PGraphics mapBuffer) {
+		int xColor = (int) PApplet.map(	this.x,
+										0, wollumetric.size.x,
+										0, 255);
+		int zColor = (int) PApplet.map(	this.z,
+										0, wollumetric.size.z,
+										0, 255);
+		for (int i = 0; i < Wollumetric.pApplet.height; i++) {
+			float yForI = PApplet.map(	i,
+										0, Wollumetric.pApplet.height,
+										projectedHeight, 0);
+			if (yForI <= wollumetric.size.y) {
+				float yColor = PApplet.map(	yForI,
+											0, wollumetric.size.y,
+											0, 255 * 255);
+				int yColor1 = (int) Math.floor(yColor / 255.0f);
+		        // TODO -- this was redacted because PImage doesn't handle alpha like I want it to
+				//  int yColor2 = (int) (yColor % 255.0f);
+		        //int yColor2 = 255;
+		        mapBuffer.stroke(xColor, yColor1, zColor);
+		        mapBuffer.line(this.screenXPos, i, this.screenXPos + Line.sliceWidth, i);
+			}
+	    }
+	}
+}

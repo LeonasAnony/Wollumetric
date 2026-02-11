@@ -1,0 +1,36 @@
+#version 150
+
+uniform float radius;
+uniform vec2 screenSize;
+uniform sampler2D mapData;
+uniform mat4 invMatrix;
+uniform vec4 fill;
+uniform vec3 xyzMax;
+
+out vec4 fragColor;
+
+vec4 mapColor;
+
+float map( in vec3 p ) {
+  vec3 d = abs(p) - radius;
+  return min(max(d.x,max(d.y,d.z)),0.0) + length(max(d,0.0));
+}
+
+vec3 pxLocation(void) {
+  vec3 mapValue = vec3(mapColor.r, (mapColor.g + mapColor.a / 255.0), mapColor.b);
+  vec4 pxLocation = vec4(mapValue * xyzMax.xyz, 1.);
+  vec4 o = pxLocation * invMatrix;
+  return o.xyz;
+}
+
+void main(void) {
+  mapColor = texture(mapData, vec2(gl_FragCoord.x, screenSize.y - gl_FragCoord.y) / screenSize).rgba;
+  if (mapColor != vec4(0., 0., 0., 0.)) {
+    float grade = map(pxLocation());
+    if (grade < 0.) {
+      fragColor = vec4(fill.rgba);
+      return;
+    }
+  }
+  discard;
+}
