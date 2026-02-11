@@ -1,3 +1,5 @@
+# Wollumetric for Processing
+
 ## Intro
 
 This library renders 3D Processing scenes on a Wollumetric wiremap display.
@@ -42,7 +44,7 @@ The config is a JSON file in the sketch's `data/` folder:
 ```json
 {
   "version": "2.0.0",
-  "wiremapFile": "wollumetric-32x20-optimized-59-100_strings.txt",
+  "wiremapFile": "optimized-32x20-1.6-94_strings.txt",
   "structureWidth": 32,
   "structureDepth": 20,
   "throwRatio": 1.6,
