@@ -136,7 +136,7 @@ python py-scripts/createMapTexture.py wiremaps/<name>_strings.txt
 A TouchDesigner SOP render Component Wollumetric.tox is in the releases, it can be used for displaying any SOPs as wiremap content.
 
 Alternatively you can manually set up a File In TOP → GLSL TOP ← Script TOP pipeline.
-See [touchdesigner/README.md](wollumetric-for-touchdesigner/README.md) for that.
+See [wollumetric-for-touchdesigner/README.md](wollumetric-for-touchdesigner/README.md) for that.
 
 ---
 
