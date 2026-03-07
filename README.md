@@ -79,6 +79,7 @@ python strings2txt.py ../wiremaps/<name>_strings.npy
 ```
 
 Available layout algorithms: `regular`, `semi`, `x`, `xz`, `prime`, `golden`, `radius`.
+
 The `radius` algorithm uses a KDTree to iteratively even out the spatial distribution.
 
 ### 2. Analyze & Preview
@@ -133,6 +134,7 @@ python py-scripts/createMapTexture.py wiremaps/<name>_strings.txt
 ```
 
 A TouchDesigner SOP render Component Wollumetric.tox is in the releases, it can be used for displaying any SOPs as wiremap content.
+
 Alternatively you can manually set up a File In TOP → GLSL TOP ← Script TOP pipeline.
 See [touchdesigner/README.md](touchdesigner/README.md) for that.
 
@@ -169,6 +171,7 @@ angle  x  z  height
 ## License
 
 This project is licensed under the [GPL-3.0](LICENSE).
-The processing library is released under the [GPL-3.0](wollumetric-for-processing/LICENSE) as well, with modifications to Albert Hwang's original work [here](https://github.com/Albert/lumarca-for-processing).
-The Processing library build template is based on work by Elie Zananiri and Andreas Schlegel.
 
+The processing library is released under the [GPL-3.0](wollumetric-for-processing/LICENSE) as well, with modifications to Albert Hwang's original work [here](https://github.com/Albert/lumarca-for-processing).
+
+The Processing library build template is based on work by Elie Zananiri and Andreas Schlegel.
