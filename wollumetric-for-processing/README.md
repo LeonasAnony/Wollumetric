@@ -44,11 +44,7 @@ The config is a JSON file in the sketch's `data/` folder:
 ```json
 {
   "version": "2.0.0",
-  "wiremapFile": "optimized-32x20-1.6-94_strings.txt",
-  "structureWidth": 32,
-  "structureDepth": 20,
-  "throwRatio": 1.6,
-  "margin": 0
+  "wiremapFile": "optimized-480-48x30-2.2-170_strings.txt",
 }
 ```
 
