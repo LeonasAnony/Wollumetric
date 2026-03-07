@@ -1,6 +1,6 @@
 # Wollumetric
 
-A toolkit for building and driving a **wiremap volumetric display** — a physical installation where hundreds of vertical strings are illuminated by a single projector to create true 3D images visible from multiple angles.
+A toolkit for building and driving a **wiremap volumetric display** - a physical installation where hundreds of vertical strings are illuminated by a single projector to create true 3D images visible from multiple angles.
 
 <!-- TODO: add hero photo/gif of the display in action -->
 ![Wollumetric Display](docs/hero.jpg)
@@ -9,7 +9,7 @@ A toolkit for building and driving a **wiremap volumetric display** — a physic
 
 ## How It Works
 
-Two (Plexiglas) plates suspend strings at varying depths inside the volume created by them. A projector shines onto the strings from one side. Because each string sits at a known position on the rays from the projector, it can selectively light individual strings and on them vertical points in space — creating a volumetric display.
+Two (Plexiglas) plates suspend strings at varying depths inside the volume created by them. A projector shines onto the strings from one side. Because each string sits at a known position on the rays from the projector, it can selectively light individual strings and on them vertical points in space - creating a volumetric display.
 
 <!-- TODO: add diagram showing projector → strings → viewer -->
 
@@ -50,8 +50,8 @@ Wollumetric/
 │   └── resources/           Build configuration
 │
 └── touchdesigner/           TouchDesigner voxel rendering pipeline
-    ├── wollumetric_voxelizer.py   Script TOP — voxelises SOPs
-    ├── wollumetric_render.glsl    GLSL TOP — renders the wiremap image
+    ├── wollumetric_voxelizer.py   Script TOP - voxelises SOPs
+    ├── wollumetric_render.glsl    GLSL TOP - renders the wiremap image
     └── README.md                  Detailed setup guide
 ```
 
