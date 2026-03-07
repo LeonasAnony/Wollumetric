@@ -1,9 +1,4 @@
 {
-  "structureDepth": 20,
-  "margin": 0,
-  "wiremapFile": "optimized-32x20-1.6-94_strings.txt",
-  "throwRatio": 1.6,
-  "structureWidth": 32,
-  "version": "2.0.0",
-  "mapCache": "473d7a63433c17d"
+  "wiremapFile": "radius-480-48x30-2.2-170.0_strings.txt",
+  "version": "2.0.0"
 }
