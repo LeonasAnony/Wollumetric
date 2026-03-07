@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wollumetric 3D Visualizer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #111; color: #eee; font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
+  canvas { display: block; }
+
+  #ui {
+    position: absolute; top: 0; left: 0; padding: 16px;
+    display: flex; flex-direction: column; gap: 10px;
+    pointer-events: none; max-width: 340px;
+  }
+  #ui > * { pointer-events: auto; }
+
+  h1 { font-size: 18px; font-weight: 600; letter-spacing: .5px; }
+  .subtitle { font-size: 12px; color: #999; margin-top: 2px; }
+
+  .panel {
+    background: rgba(20,20,25,.85); border: 1px solid #333;
+    border-radius: 8px; padding: 12px; backdrop-filter: blur(8px);
+  }
+
+  .stat { display: flex; justify-content: space-between; font-size: 13px; padding: 2px 0; }
+  .stat .label { color: #888; }
+  .stat .value { color: #cdf; font-variant-numeric: tabular-nums; }
+
+  #drop-zone {
+    border: 2px dashed #555; border-radius: 8px; padding: 24px;
+    text-align: center; cursor: pointer; transition: border-color .2s;
+  }
+  #drop-zone:hover, #drop-zone.dragover { border-color: #7af; }
+  #drop-zone p { font-size: 13px; color: #999; }
+
+  .controls-hint {
+    font-size: 11px; color: #666; text-align: center; padding: 4px;
+  }
+
+  #config-panel { display: flex; flex-direction: column; gap: 6px; }
+  #config-panel label { font-size: 12px; color: #aaa; display: flex; justify-content: space-between; align-items: center; }
+  #config-panel input[type=number] {
+    width: 70px; background: #222; border: 1px solid #444; color: #eee;
+    border-radius: 4px; padding: 3px 6px; font-size: 12px;
+  }
+  #config-panel select {
+    width: 140px; background: #222; border: 1px solid #444; color: #eee;
+    border-radius: 4px; padding: 3px 6px; font-size: 12px;
+  }
+
+  button.reload-btn {
+    background: #2a5; color: #fff; border: none; border-radius: 6px;
+    padding: 7px 14px; cursor: pointer; font-size: 13px; margin-top: 6px;
+    width: 100%;
+  }
+  button.reload-btn:hover { background: #3b6; }
+  button.reload-btn:disabled { background: #444; color: #888; cursor: default; }
+
+  #legend {
+    position: absolute; bottom: 16px; right: 16px;
+    background: rgba(20,20,25,.85); border: 1px solid #333;
+    border-radius: 8px; padding: 10px 14px; backdrop-filter: blur(8px);
+  }
+  #legend .title { font-size: 11px; color: #888; margin-bottom: 4px; }
+  #legend .bar {
+    width: 160px; height: 12px; border-radius: 3px;
+  }
+  #legend .labels { display: flex; justify-content: space-between; font-size: 10px; color: #888; margin-top: 2px; }
+
+  #legend-geo { font-size: 11px; display: flex; flex-direction: column; gap: 3px; }
+  #legend-geo .item { display: flex; align-items: center; gap: 6px; }
+  #legend-geo .swatch { width: 10px; height: 10px; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div id="ui">
+  <div class="panel">
+    <h1>Wollumetric Visualizer</h1>
+    <div class="subtitle">3D string display preview</div>
+  </div>
+
+  <div class="panel" id="config-panel">
+    <label>Structure Width <input type="number" id="cfgWidth" value="32" step="1"></label>
+    <label>Structure Depth <input type="number" id="cfgDepth" value="20" step="1"></label>
+    <label>Throw Ratio <input type="number" id="cfgThrow" value="1.6" step="0.1"></label>
+    <label>Mode
+      <select id="mode-select">
+        <option value="none">Strings Only</option>
+        <option value="basicgeo">Basic Geometry</option>
+        <option value="colors">Colors</option>
+      </select>
+    </label>
+    <button class="reload-btn" id="reload-btn" disabled>Reload</button>
+  </div>
+
+  <div class="panel" id="drop-zone">
+    <p>Drop a <strong>_strings.txt</strong> file here<br>or click to browse</p>
+    <input type="file" id="file-input" accept=".txt" style="display:none">
+  </div>
+
+  <div class="panel" id="stats-panel" style="display:none">
+    <div class="stat"><span class="label">Strings</span><span class="value" id="sNumStrings">—</span></div>
+    <div class="stat"><span class="label">Width (x)</span><span class="value" id="sWidth">—</span></div>
+    <div class="stat"><span class="label">Depth (z)</span><span class="value" id="sDepth">—</span></div>
+    <div class="stat"><span class="label">Max Height</span><span class="value" id="sMaxH">—</span></div>
+    <div class="stat"><span class="label">Near Depth</span><span class="value" id="sNear">—</span></div>
+    <div class="stat"><span class="label">Far Depth</span><span class="value" id="sFar">—</span></div>
+  </div>
+
+  <div class="controls-hint">LMB: rotate &nbsp;|&nbsp; RMB: pan &nbsp;|&nbsp; Scroll: zoom</div>
+</div>
+
+<div id="legend" style="display:none">
+  <!-- depth legend (strings-only mode) -->
+  <div id="legend-depth">
+    <div class="title">Depth (z)</div>
+    <div class="bar" style="background: linear-gradient(to right, #00aaff, #00ffaa, #ffff00, #ff6600);"></div>
+    <div class="labels"><span id="legendNear">0</span><span id="legendFar">20</span></div>
+  </div>
+  <!-- geometry legend -->
+  <div id="legend-geo" style="display:none">
+    <div class="item"><div class="swatch" style="background:#ff3333"></div> sphere(5)</div>
+    <div class="item"><div class="swatch" style="background:#33ff33"></div> box(10) — spinning</div>
+  </div>
+  <!-- colors legend -->
+  <div id="legend-colors" style="display:none">
+    <div class="title">X → Hue &nbsp; Y → Saturation &nbsp; Z → Brightness</div>
+    <div class="bar" style="background: linear-gradient(to right, hsl(0,80%,50%), hsl(60,80%,50%), hsl(120,80%,50%), hsl(180,80%,50%), hsl(240,80%,50%), hsl(300,80%,50%), hsl(360,80%,50%));"></div>
+    <div class="labels"><span>0°</span><span>360°</span></div>
+  </div>
+</div>
+
+<!-- Three.js r158 -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ── Constants ─────────────────────────────────────────── */
+const SEGS = 40;  // segments per string
+
+/* ── Scene setup ───────────────────────────────────────── */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x111115);
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+//scene.fog = new THREE.FogExp2(0x111115, 0.008);
+
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 500);
+camera.position.set(30, 20, 50);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+
+scene.add(new THREE.AmbientLight(0x606080));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+dirLight.position.set(20, 30, 20);
+scene.add(dirLight);
+
+//const grid = new THREE.GridHelper(80, 40, 0x333333, 0x222222);
+//scene.add(grid);
+
+/* ── Groups ────────────────────────────────────────────── */
+const stringsGroup  = new THREE.Group(); scene.add(stringsGroup);
+const helpersGroup  = new THREE.Group(); scene.add(helpersGroup);
+const modeGroup     = new THREE.Group(); scene.add(modeGroup);
+
+/* ── State ─────────────────────────────────────────────── */
+let currentMode   = 'none';
+let lastFileText  = null;
+let parsedData    = null;   // { strings, params }
+let colorAttr     = null;
+let needsColorUpdate = true;
+let modeObjects   = {};
+
+/* ── Helpers ───────────────────────────────────────────── */
+function linMap(v, inMin, inMax, outMin, outMax) {
+  return outMin + (v - inMin) / (inMax - inMin) * (outMax - outMin);
+}
+
+function depthColor(t) {
+  const r = t < 0.5 ? t * 2 : 1;
+  const g = t < 0.5 ? 0.7 + t * 0.6 : 1.3 - t * 0.6;
+  const b = 1 - t;
+  return [r, g, b];
+}
+
+function hsvToRGB(h, s, v) {
+  h = ((h % 360) + 360) % 360;
+  s /= 100; v /= 100;
+  const c = v * s;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = v - c;
+  let r, g, b;
+  if      (h < 60)  { r = c; g = x; b = 0; }
+  else if (h < 120) { r = x; g = c; b = 0; }
+  else if (h < 180) { r = 0; g = c; b = x; }
+  else if (h < 240) { r = 0; g = x; b = c; }
+  else if (h < 300) { r = x; g = 0; b = c; }
+  else              { r = c; g = 0; b = x; }
+  return [r + m, g + m, b + m];
+}
+
+/* ── Parse & build scene ───────────────────────────────── */
+function buildScene(text) {
+  stringsGroup.clear();
+  helpersGroup.clear();
+  modeGroup.clear();
+  modeObjects = {};
+
+  const cfgWidth = parseFloat(document.getElementById('cfgWidth').value) || 32;
+  const cfgDepth = parseFloat(document.getElementById('cfgDepth').value) || 20;
+  const cfgThrow = parseFloat(document.getElementById('cfgThrow').value) || 1.6;
+
+  const nearDepth = cfgThrow * cfgWidth;
+  const farDepth  = nearDepth + cfgDepth;
+  const farX      = cfgWidth * farDepth / nearDepth;
+
+  /* parse lines: angle x z height */
+  const rawLines = text.trim().split('\n').map(l => {
+    const p = l.trim().split(/\s+/).map(Number);
+    return { angle: p[0], x: p[1], z: p[2], height: p[3] };
+  }).filter(l => !isNaN(l.x));
+
+  /* compute positions (same as Java: lineX = x + size.x/2) */
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity, maxH = 0;
+  const strings = rawLines.map(l => {
+    const sx = l.x + farX / 2;
+    const sz = l.z;
+    const sh = l.height;
+    if (sx < minX) minX = sx; if (sx > maxX) maxX = sx;
+    if (sz < minZ) minZ = sz; if (sz > maxZ) maxZ = sz;
+    if (sh > maxH) maxH = sh;
+    return { x: sx, z: sz, height: sh };
+  });
+
+  const cx = (minX + maxX) / 2;
+  const cz = (minZ + maxZ) / 2;
+  const zRange = (maxZ - minZ) || 1;
+  const params = { minX, maxX, minZ, maxZ, maxH, cx, cz, zRange, farX, cfgDepth, nearDepth, farDepth };
+
+  /* precompute centered positions */
+  for (const s of strings) {
+    s.px = s.x - cx;
+    s.pz = s.z - cz;
+    s.dist2 = s.px * s.px + s.pz * s.pz;  // for sphere check
+  }
+
+  parsedData = { strings, params };
+
+  /* update stats UI */
+  document.getElementById('stats-panel').style.display = '';
+  document.getElementById('sNumStrings').textContent = strings.length;
+  document.getElementById('sWidth').textContent = farX.toFixed(1);
+  document.getElementById('sDepth').textContent = cfgDepth.toFixed(1);
+  document.getElementById('sMaxH').textContent = maxH.toFixed(1);
+  document.getElementById('sNear').textContent = nearDepth.toFixed(1);
+  document.getElementById('sFar').textContent = farDepth.toFixed(1);
+
+  /* build segmented string geometry */
+  const n = strings.length;
+  const totalVerts = n * SEGS * 2;
+  const posArr = new Float32Array(totalVerts * 3);
+  const colArr = new Float32Array(totalVerts * 3);
+
+  for (let i = 0; i < n; i++) {
+    const s = strings[i];
+    for (let j = 0; j < SEGS; j++) {
+      const yBot = -s.height / 2 + (j / SEGS) * s.height;
+      const yTop = -s.height / 2 + ((j + 1) / SEGS) * s.height;
+      const idx = (i * SEGS + j) * 6;
+      posArr[idx]     = s.px; posArr[idx + 1] = yBot; posArr[idx + 2] = s.pz;
+      posArr[idx + 3] = s.px; posArr[idx + 4] = yTop; posArr[idx + 5] = s.pz;
+    }
+  }
+
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+  colorAttr = new THREE.BufferAttribute(colArr, 3);
+  colorAttr.setUsage(THREE.DynamicDrawUsage);
+  geom.setAttribute('color', colorAttr);
+  const mat = new THREE.LineBasicMaterial({ vertexColors: true });
+  stringsGroup.add(new THREE.LineSegments(geom, mat));
+
+  /* bounding box wireframe */
+  const boxW = maxX - minX, boxD = maxZ - minZ, boxH = maxH;
+  const bbGeo = new THREE.BoxGeometry(boxW, boxH, boxD);
+  helpersGroup.add(new THREE.LineSegments(
+    new THREE.EdgesGeometry(bbGeo),
+    new THREE.LineBasicMaterial({ color: 0x555555 })
+  ));
+
+  /* projector frustum */
+  const hw = cfgWidth / 2, hf = farX / 2;
+  const nz = -cz, fz = cfgDepth - cz;
+  const aspect = 1.6;
+  const nHH = hw / aspect, fHH = hf / aspect;
+  const fv = new Float32Array([
+    -hw,-nHH,nz, hw,-nHH,nz, hw,-nHH,nz, hw,nHH,nz,
+    hw,nHH,nz, -hw,nHH,nz, -hw,nHH,nz, -hw,-nHH,nz,
+    -hf,-fHH,fz, hf,-fHH,fz, hf,-fHH,fz, hf,fHH,fz,
+    hf,fHH,fz, -hf,fHH,fz, -hf,fHH,fz, -hf,-fHH,fz,
+    -hw,-nHH,nz, -hf,-fHH,fz, hw,-nHH,nz, hf,-fHH,fz,
+    hw,nHH,nz, hf,fHH,fz, -hw,nHH,nz, -hf,fHH,fz,
+  ]);
+  const fGeo = new THREE.BufferGeometry();
+  fGeo.setAttribute('position', new THREE.BufferAttribute(fv, 3));
+  helpersGroup.add(new THREE.LineSegments(fGeo,
+    new THREE.LineBasicMaterial({ color: 0x664422, transparent: true, opacity: 0.4 })));
+
+  /* floor */
+  const floorGeo = new THREE.PlaneGeometry(boxW + 4, boxD + 4);
+  const floor = new THREE.Mesh(floorGeo,
+    new THREE.MeshBasicMaterial({ color: 0x181820, transparent: true, opacity: 0.5, side: THREE.DoubleSide }));
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -maxH / 2;
+  helpersGroup.add(floor);
+
+  /* set up mode objects */
+//  setupModeObjects();
+
+  /* camera */
+  controls.target.set(0, 0, 0);
+  camera.position.set(boxW * 0.8, boxH * 0.6, boxD * 1.5);
+  controls.update();
+
+  needsColorUpdate = true;
+}
+  
+/* ── Mode objects ──────────────────────────────────────── */
+function setupModeObjects() {
+  modeGroup.clear();
+  modeObjects = {};
+  if (!parsedData) return;
+
+  if (currentMode === 'basicgeo') {
+    /* red sphere wireframe */
+    const sGeo = new THREE.SphereGeometry(5, 20, 14);
+    const sMat = new THREE.MeshBasicMaterial({ color: 0xff4444, wireframe: true, transparent: true, opacity: 0.1 });
+    const sMesh = new THREE.Mesh(sGeo, sMat);
+    modeGroup.add(sMesh);
+    modeObjects.sphere = sMesh;
+
+    /* green cube wireframe */
+    const cGeo = new THREE.BoxGeometry(10, 10, 10);
+    const cMat = new THREE.MeshBasicMaterial({ color: 0x44ff44, wireframe: true, transparent: true, opacity: 0.1 });
+    const cMesh = new THREE.Mesh(cGeo, cMat);
+    cMesh.position.x = 15;
+    modeGroup.add(cMesh);
+    modeObjects.cube = cMesh;
+  }
+}
+
+/* ── Update legend ─────────────────────────────────────── */
+function updateLegend() {
+  const legend    = document.getElementById('legend');
+  const lDepth    = document.getElementById('legend-depth');
+  const lGeo      = document.getElementById('legend-geo');
+  const lColors   = document.getElementById('legend-colors');
+  if (!parsedData) { legend.style.display = 'none'; return; }
+  legend.style.display = '';
+  lDepth.style.display  = currentMode === 'none'     ? '' : 'none';
+  lGeo.style.display    = currentMode === 'basicgeo' ? '' : 'none';
+  lColors.style.display = currentMode === 'colors'   ? '' : 'none';
+  if (currentMode === 'none') {
+    document.getElementById('legendNear').textContent = parsedData.params.minZ.toFixed(0);
+    document.getElementById('legendFar').textContent  = parsedData.params.maxZ.toFixed(0);
+  }
+}
+
+/* ── Color computation ─────────────────────────────────── */
+function computeColors(time) {
+  if (!parsedData || !colorAttr) return;
+  const { strings, params } = parsedData;
+  const cols = colorAttr.array;
+  const n = strings.length;
+
+  const SPHERE_R = 5;
+  const BOX_HALF = 5;
+  const BOX_X = 15;
+
+  for (let i = 0; i < n; i++) {
+    const s = strings[i];
+
+    if (currentMode === 'none') {
+      /* depth coloring — same color for all segments */
+      const t = (s.z - params.minZ) / params.zRange;
+      const [cr, cg, cb] = depthColor(t);
+      for (let j = 0; j < SEGS; j++) {
+        const idx = (i * SEGS + j) * 6;
+        cols[idx] = cr; cols[idx+1] = cg; cols[idx+2] = cb;
+        cols[idx+3] = cr; cols[idx+4] = cg; cols[idx+5] = cb;
+      }
+    }
+
+    else if (currentMode === 'basicgeo') {
+      const theta = time / 3000;
+      const cosT = Math.cos(theta), sinT = Math.sin(theta);
+
+      /* precompute per-string sphere cylinder check */
+      const inSphereCyl = s.dist2 <= SPHERE_R * SPHERE_R;
+      const sphereYMax = inSphereCyl ? Math.sqrt(SPHERE_R * SPHERE_R - s.dist2) : 0;
+
+      /* precompute per-string box x check */
+      const dx = s.px - BOX_X;
+      const inBoxX = Math.abs(dx) <= BOX_HALF;
+
+      for (let j = 0; j < SEGS; j++) {
+        const yMid = -s.height / 2 + ((j + 0.5) / SEGS) * s.height;
+        const idx = (i * SEGS + j) * 6;
+        let r = 0.03, g = 0.03, b = 0.05;
+
+        /* sphere check */
+        if (inSphereCyl && Math.abs(yMid) <= sphereYMax) {
+          r = 1; g = 0.15; b = 0.1;
+        }
+        /* box check (rotated around X axis) */
+        else if (inBoxX) {
+          const ly = cosT * yMid + sinT * s.pz;
+          const lz = -sinT * yMid + cosT * s.pz;
+          if (Math.abs(ly) <= BOX_HALF && Math.abs(lz) <= BOX_HALF) {
+            r = 0.1; g = 1; b = 0.15;
+          }
+        }
+
+        cols[idx] = r; cols[idx+1] = g; cols[idx+2] = b;
+        cols[idx+3] = r; cols[idx+4] = g; cols[idx+5] = b;
+      }
+    }
+
+    else if (currentMode === 'colors') {
+      /* HSB mapping: hue→x, brightness→z, saturation→y */
+      const hue = linMap(s.x, 0, params.farX, 0, 360);
+      const bri = linMap(s.z, 0, params.cfgDepth, 100, 20);
+      for (let j = 0; j < SEGS; j++) {
+        const sat = linMap(j, 0, SEGS - 1, 1, 100);
+        const [cr, cg, cb] = hsvToRGB(hue, sat, bri);
+        const idx = (i * SEGS + j) * 6;
+        cols[idx] = cr; cols[idx+1] = cg; cols[idx+2] = cb;
+        cols[idx+3] = cr; cols[idx+4] = cg; cols[idx+5] = cb;
+      }
+    }
+  }
+
+  colorAttr.needsUpdate = true;
+}
+
+/* ── Mode switching ────────────────────────────────────── */
+const modeSelect = document.getElementById('mode-select');
+modeSelect.addEventListener('change', () => {
+  currentMode = modeSelect.value;
+//  setupModeObjects();
+  updateLegend();
+  needsColorUpdate = true;
+});
+
+/* ── File loading ──────────────────────────────────────── */
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const reloadBtn = document.getElementById('reload-btn');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) loadFile(e.target.files[0]);
+});
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    lastFileText = e.target.result;
+    dropZone.querySelector('p').innerHTML = `<strong>${file.name}</strong> loaded`;
+    reloadBtn.disabled = false;
+    buildScene(lastFileText);
+    updateLegend();
+  };
+  reader.readAsText(file);
+}
+
+reloadBtn.addEventListener('click', () => {
+  if (lastFileText) {
+    buildScene(lastFileText);
+    updateLegend();
+  }
+});
+
+/* ── Resize ────────────────────────────────────────────── */
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* ── Animate ───────────────────────────────────────────── */
+function animate(time) {
+  requestAnimationFrame(animate);
+
+  /* rotate cube in basicgeo mode */
+  if (modeObjects.cube) {
+    modeObjects.cube.rotation.x = time / 3000;
+  }
+
+  /* update string colors */
+  if (currentMode === 'basicgeo' || needsColorUpdate) {
+    computeColors(time);
+    needsColorUpdate = false;
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
