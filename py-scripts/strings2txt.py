@@ -6,6 +6,8 @@
 import sys
 import numpy as np
 
+print("Wollumetric String npy to txt")
+
 # get command line argument for path to .npy file
 arg_path = str(sys.argv[1]) if len(sys.argv) > 1 else ""
 
