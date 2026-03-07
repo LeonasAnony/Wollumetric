@@ -12,6 +12,7 @@ import processing.data.JSONObject;
 public class Wollumetric extends ProcessingObject {
 	public final static String RENDERER = "wollumetric.WGraphics";
 	public PVector size;
+	public PVector nearSize;
 	private WGraphics gfx;
 	private float nearDepth;
 	private float farDepth;
@@ -53,26 +54,33 @@ public class Wollumetric extends ProcessingObject {
 		bindToRenderer(p);
 		gfx.sphereShader = gfx.loadShader(WGraphics.class.getResource("sphere.glsl").toString());
 		gfx.boxShader = gfx.loadShader(WGraphics.class.getResource("box.glsl").toString());
+		gfx.meshShader = gfx.loadShader(WGraphics.class.getResource("mesh.glsl").toString());
 
 		/* config */
 		JSONObject config = p.loadJSONObject(p.dataPath(jsonPath));
-		float maxX = config.getFloat("structureWidth");
-		float maxZ = config.getFloat("structureDepth");
-		float throwRatio = config.getFloat("throwRatio");
-		int margin = config.getInt("margin", 0);
 		String wiremapFile = config.getString("wiremapFile");
+		String wiremapName = wiremapFile.replace(".txt", "");
+
+		String[] params = wiremapName.split("_")[0].split("-");
+		float maxX = Float.parseFloat(params[2].split("x")[0]);
+		float maxZ = Float.parseFloat(params[2].split("x")[1]);
+		float throwRatio = Float.parseFloat(params[3]);
 
 		/* derived geometry */
 		nearDepth = throwRatio * maxX;
 		farDepth = nearDepth + maxZ;
-		float maxY = maxX * ((float) p.height / (float) p.width);
-		size = new PVector(maxX, maxY, maxZ);
+		float nearY = maxX * ((float) p.height / (float) p.width);
+		nearSize = new PVector(maxX, nearY, maxZ);
+		/* size covers the full projector frustum (far-plane extents) */
+		float farX = maxX * farDepth / nearDepth;
+		float farY = farX * ((float) p.height / (float) p.width);
+		size = new PVector(farX, farY, maxZ);
 
 		/* load wiremap — each line: angle x z [height] */
 		String[] wiremapLines = p.loadStrings(p.dataPath(wiremapFile));
 		int numberOfLines = wiremapLines.length;
 		int pxPerSlice = p.width / numberOfLines;
-		Line.setSliceWidth(pxPerSlice - margin);
+		Line.setSliceWidth(pxPerSlice);
 
 		/* build lines */
 		lines = new ArrayList<Line>();
@@ -85,31 +93,50 @@ public class Wollumetric extends ProcessingObject {
 			float lineX = x + (size.x / 2.0f);
 			float lineZ = z;
 			float lineY = y;
-			float sliceXOffset = pxPerSlice * i + (margin / 2);
+			float sliceXOffset = pxPerSlice * i;
 
 			lines.add(new Line(lineX, lineZ, sliceXOffset, lineY, this));
 		}
 
+		/* load calibration if available */
+		String calibFile;
+		if (wiremapFile.endsWith("_strings.txt")) {
+			calibFile = wiremapFile.substring(0, wiremapFile.length() - "_strings.txt".length()) + "_calib.txt";
+		} else {
+			calibFile = wiremapFile + "_calib.txt";
+		}
+		String calibHash = "";
+		File calibFileObj = new File(p.dataPath(calibFile));
+		if (calibFileObj.exists()) {
+			String[] calibLines = p.loadStrings(p.dataPath(calibFile));
+			int hash = 0;
+			for (int i = 0; i < Math.min(calibLines.length, lines.size()); i++) {
+				String[] cparts = calibLines[i].trim().split("\\s+");
+				if (cparts.length >= 2) {
+					int cw = Integer.parseInt(cparts[0]);
+					int co = Integer.parseInt(cparts[1]);
+					lines.get(i).setCalibration(cw, co);
+					hash = hash * 31 + cw;
+					hash = hash * 31 + co;
+				}
+			}
+			calibHash = Integer.toHexString(hash);
+		}
+
 		/* find or build map */
 		boolean generateNewMap = false;
-		String mapKey = config.getString("mapCache", "undefined");
-		if (mapKey.equals("undefined")) {
+		String storedCalibHash = config.getString("calibCache", "");
+		 if (!calibHash.equals(storedCalibHash)) {
 			generateNewMap = true;
 		} else {
-			File f = new File(p.dataPath(mapKey + ".png"));
+			File f = new File(p.dataPath(wiremapName + ".png"));
 			if (!f.exists()) {
 				generateNewMap = true;
 			}
 		}
 
 		if (generateNewMap) {
-			Random r = new Random();
-			StringBuffer sb = new StringBuffer();
-			while (sb.length() < 16) {
-				sb.append(Integer.toHexString(r.nextInt()));
-			}
-			mapKey = sb.toString().substring(0, 15);
-			config.setString("mapCache", mapKey);
+			config.setString("calibCache", calibHash);
 			p.saveJSONObject(config, p.dataPath(jsonPath));
 			PGraphics mapBuffer = p.createGraphics(p.width, p.height);
 			mapBuffer.beginDraw();
@@ -118,10 +145,10 @@ public class Wollumetric extends ProcessingObject {
 				lines.get(i).renderMap(mapBuffer);
 			}
 			mapBuffer.endDraw();
-			mapBuffer.save(p.dataPath(mapKey + ".png"));
+			mapBuffer.save(p.dataPath(wiremapName + ".png"));
 		}
 
-		gfx.mapData = p.loadImage(p.dataPath(mapKey + ".png"));
+		gfx.mapData = p.loadImage(p.dataPath(wiremapName + ".png"));
 	}
 
 	public WGraphics getGfx() {

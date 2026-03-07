@@ -9,12 +9,35 @@ public class Line {
 	private float projectedHeight;
 	private Wollumetric wollumetric;
 
+	/* Per-line calibration. calibWidth <= 0 means "use default sliceWidth". */
+	private int calibWidth = -1;
+	private int calibOffset = 0;
+
 	public Line(float lineX, float lineZ, float screenXPos, float projectedHeight, Wollumetric wollumetric) {
 		this.x = lineX;
 		this.z = lineZ;
 		this.screenXPos = screenXPos;
 		this.projectedHeight = projectedHeight;
 		this.wollumetric = wollumetric;
+	}
+
+	/**
+	 * Set per-line calibration width and offset.
+	 *
+	 * @param width   pixel width for this line (1 .. sliceWidth)
+	 * @param offset  pixel offset within the slot (0 .. sliceWidth - width)
+	 */
+	public void setCalibration(int width, int offset) {
+		this.calibWidth = width;
+		this.calibOffset = offset;
+	}
+
+	private int getEffectiveWidth() {
+		return calibWidth > 0 ? calibWidth : sliceWidth;
+	}
+
+	private float getEffectiveScreenX() {
+		return screenXPos + calibOffset;
 	}
 
 	/**
@@ -28,8 +51,8 @@ public class Line {
 		/* TODO DEBUG */
 		float top = y1 > y2 ? y1 : y2;
 		float bot = top == y1 ? y2 : y1;
-		float clampTop = Math.max(0, Math.min(wollumetric.size.y, top));
-		float clampBot = Math.max(0, Math.min(wollumetric.size.y, bot));
+		float clampTop = Math.max(0, Math.min(projectedHeight, top));
+		float clampBot = Math.max(0, Math.min(projectedHeight, bot));
 	    float drawHeight = clampTop - clampBot;
 
 		float rectTop = PApplet.map(clampTop,
@@ -47,7 +70,7 @@ public class Line {
 		Wollumetric.pApplet.pushStyle();
 			Wollumetric.pApplet.applyMatrix(invMatrix);
 			Wollumetric.pApplet.noStroke();
-			Wollumetric.pApplet.rect(this.screenXPos, rectTop, Line.sliceWidth, rectHeight);
+			Wollumetric.pApplet.rect(getEffectiveScreenX(), rectTop, getEffectiveWidth(), rectHeight);
 		Wollumetric.pApplet.popStyle();
 		Wollumetric.pApplet.popMatrix();
 	}
@@ -57,6 +80,8 @@ public class Line {
 	}
 
 	public void renderMap(PGraphics mapBuffer) {
+		float effectiveX = getEffectiveScreenX();
+		int effectiveWidth = getEffectiveWidth();
 		int xColor = (int) PApplet.map(	this.x,
 										0, wollumetric.size.x,
 										0, 255);
@@ -76,7 +101,7 @@ public class Line {
 				//  int yColor2 = (int) (yColor % 255.0f);
 		        //int yColor2 = 255;
 		        mapBuffer.stroke(xColor, yColor1, zColor);
-		        mapBuffer.line(this.screenXPos, i, this.screenXPos + Line.sliceWidth, i);
+		        mapBuffer.line(effectiveX, i, effectiveX + effectiveWidth, i);
 			}
 	    }
 	}
