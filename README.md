@@ -3,7 +3,6 @@
 A toolkit for building and driving a **wiremap volumetric display** - a physical installation where hundreds of vertical strings are illuminated by a single projector to create true 3D images visible from multiple angles.
 
 <!-- TODO: add hero photo/gif of the display in action -->
-![Wollumetric Display](docs/hero.jpg)
 
 ---
 
@@ -33,26 +32,32 @@ The Python scripts for wiremap generation, the browser visualizer, and the Touch
 
 ```
 Wollumetric/
-├── py-scripts/              Python tools for designing string layouts
-│   ├── createPoints.py      Generate string positions (multiple algorithms)
-│   ├── createStrings.py     Add projected heights to points
-│   ├── strings2txt.py       Convert .npy → .txt wiremap format
-│   ├── visualizePoints.py   Plot point distributions (matplotlib)
-│   ├── analyzeViewability.py  Visibility analysis from all viewing angles
-│   └── createMapTexture.py  Generate map texture PNG for TouchDesigner
+├── py-scripts/                   Python tools for designing string layouts
+│   ├── createPoints.py           Generate string positions (multiple algorithms)
+│   ├── createStrings.py          Add projected heights to points
+│   ├── strings2txt.py            Convert .npy to .txt wiremap format
+│   ├── visualizePoints.py        Plot point distributions (matplotlib)
+│   ├── analyzeViewability.py     Visibility analysis from all viewing angles
+│   └── createMapTexture.py       Generate map texture PNG for TouchDesigner
 │
-├── visualizer/              Browser-based 3D wiremap preview (Three.js)
-│   └── index.html           Drag & drop a _strings.txt to visualize
+├── visualizer/                   Browser-based 3D wiremap preview (Three.js)
+│   └── index.html                Drag & drop a _strings.txt to visualize
 │
 ├── wollumetric-for-processing/   Processing library for real-time rendering
-│   ├── src/wollumetric/     Library source (Java + GLSL shaders)
-│   ├── examples/            Example sketches
-│   └── resources/           Build configuration
+│   ├── src/wollumetric/          Library source (Java + GLSL shaders)
+│   ├── examples/                 Example sketches
+│   └── resources/                Build configuration
 │
-└── touchdesigner/           TouchDesigner voxel rendering pipeline
-    ├── wollumetric_voxelizer.py   Script TOP - voxelises SOPs
-    ├── wollumetric_render.glsl    GLSL TOP - renders the wiremap image
-    └── README.md                  Detailed setup guide
+├── touchdesigner/                TouchDesigner voxel rendering pipeline
+│   ├── wollumetric_voxelizer.py  Script TOP - voxelises SOPs
+│   ├── wollumetric_render.glsl   GLSL TOP - renders the wiremap image
+│   └── README.md                 Detailed setup guide
+│
+└── AddIns/Wollumetric/           Fusion 360 AddIn for manufacturing
+    └── commands/
+        ├── loadPoints/           Import _points.npy into a sketch
+        ├── createAxes/           Construction axes at each point
+        └── createCircles/        Hole footprints at each point
 ```
 
 ---
@@ -67,15 +72,15 @@ cd py-scripts
 
 # Generate 480 string positions in a 48×30cm structure, throw ratio 2.2
 python createPoints.py
-# → saves  <name>_points.npy
+# > outputs <name>_points.npy
 
 # Add projected heights
 python createStrings.py ../wiremaps/<name>_points.npy
-# → saves  <name>_strings.npy
+# > outputs <name>_strings.npy
 
 # Convert to text format
 python strings2txt.py ../wiremaps/<name>_strings.npy
-# → saves  <name>_strings.txt
+# > outputs <name>_strings.txt
 ```
 
 Available layout algorithms: `regular`, `semi`, `x`, `xz`, `prime`, `golden`, `radius`.
@@ -90,9 +95,11 @@ python visualizePoints.py ../wiremaps/<name>_points.npy
 
 # Viewability analysis (how many strings visible from each angle)
 python analyzeViewability.py ../wiremaps/<name>_points.npy
-```
 
-Open `visualizer/index.html` in a browser and drag in a `_strings.txt` file for an interactive 3D preview.
+# Browser-based 3D preview (drag & drop the _strings.txt)
+python -m http.server 8000 -d visualizer
+# > open http://localhost:8000 in a browser
+```
 
 <!-- TODO: add screenshot of the visualizer -->
 
@@ -129,14 +136,23 @@ See [wollumetric-for-processing/README.md](wollumetric-for-processing/README.md)
 ```bash
 # Generate the map texture for your projector resolution
 python py-scripts/createMapTexture.py wiremaps/<name>_strings.txt
-# → saves  <name>_map_1920x1200.png
-# → prints uVolumeSize values for the shader
+# > outputs <name>_map_1920x1200.png
+# > prints uVolumeSize values for the shader
 ```
 
 A TouchDesigner SOP render Component Wollumetric.tox is in the releases, it can be used for displaying any SOPs as wiremap content.
 
-Alternatively you can manually set up a File In TOP → GLSL TOP ← Script TOP pipeline.
-See [wollumetric-for-touchdesigner/README.md](wollumetric-for-touchdesigner/README.md) for that.
+Alternatively you can manually set up the render network, see [wollumetric-for-touchdesigner/README.md](wollumetric-for-touchdesigner/README.md) for that.
+
+### 4. Manufacturing (Fusion 360)
+
+The Fusion 360 AddIn in `AddIns/Wollumetric/` helps with manufacturing the display structure. It bridges from the `_points.npy` file to a CAD Fusion sketch.
+
+1. **Load Points** — imports a `_points.npy` file as sketch points on the active sketch.
+2. **Create Axes** — generates construction axis perpendicular to the surface at each point (to translate the points to an angled surface).
+3. **Create Circles** — creates circles of a specified diameter at each point.
+
+Install by copying the `AddIns/Wollumetric` folder into your Fusion 360 AddIns directory.
 
 ---
 
@@ -161,10 +177,11 @@ angle  x  z  height
 
 | Component | Dependencies |
 |-----------|-------------|
-| py-scripts | Python 3, NumPy, Matplotlib, SciPy (for `radius` algorithm) |
+| py-scripts | Python 3, NumPy, Matplotlib, SciPy |
 | Processing library | Processing 4.x (Java 17+, OpenGL 3.2+) |
 | TouchDesigner pipeline | TouchDesigner, SciPy |
-| Visualizer | Any modern browser |
+| Fusion 360 AddIn | Fusion 360, NumPy |
+| Visualizer | Python 3, Browser |
 
 ---
 

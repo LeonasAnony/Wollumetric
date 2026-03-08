@@ -1,3 +1,5 @@
 wiremaps
 *.npy
 *.txt
+__pycache__
+.vscode
