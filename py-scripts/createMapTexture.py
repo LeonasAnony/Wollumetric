@@ -1,9 +1,9 @@
 ### Generate a Wollumetric map texture from a wiremap _strings.txt file.
 ### The map texture encodes the 3D world-space position of each projector
-### pixel as RGB.
+### pixel as RGBA.  R = x, G = y (high byte), B = z, A = y (low byte).
 ###
 ### Usage:
-### 	python createMapTexture.py path/to/wiremap_strings.txt
+### 	python createMapTexture.py path/to/wiremap_strings.txt [bot|cen|top]
 
 import sys
 import os
@@ -36,6 +36,13 @@ max_z = float(params[2].split("x")[1])
 throw_ratio = float(params[3])
 print(f"From filename: maxX={max_x}, maxZ={max_z}, throwRatio={throw_ratio}")
 
+# Vertical shift mode
+arg_vshift = str(input("Enter vertical shift mode (bot, [cen], top): ") or "cen").lower()
+if arg_vshift not in ("bot", "cen", "top"):
+	print(f"Invalid vShift '{arg_vshift}'. Must be bot, cen, or top.")
+	exit()
+vshift_anchor = {"bot": 0.0, "cen": 0.5, "top": 1.0}[arg_vshift]
+
 # Screen resolution
 screen_width = int(input("Enter screen width in pixels (default: 1920): ") or 1920)
 screen_height = int(input("Enter screen height in pixels (default: 1200): ") or 1200)
@@ -53,8 +60,8 @@ print(f"Volume size: x={size_x:.4f}, y={size_y:.4f}, z={size_z:.4f}")
 px_per_slice = screen_width // num_strings
 print(f"Pixels per slice: {px_per_slice}")
 
-# Build map texture (RGB uint8, black = no string)
-map_img = np.zeros((screen_height, screen_width, 3), dtype=np.uint8)
+# Build map texture (RGBA uint8)
+map_img = np.zeros((screen_height, screen_width, 4), dtype=np.uint8)
 
 # Precompute row indices for vectorized inner loop
 rows = np.arange(screen_height)
@@ -64,36 +71,39 @@ for i, parts in enumerate(wiremap_lines):
 	z_raw = float(parts[2])
 	proj_height = float(parts[3])
 
-	# Volume-space coordinates (matches Wollumetric.java)
+	# Volume-space coordinates
 	line_x = x_raw + size_x / 2.0
 	line_z = z_raw
 
-	# Encode position as color (matches Line.renderMap)
+	# vShift: shift Y range per string
+	y_min = vshift_anchor * (size_y - proj_height)
+	y_max = y_min + proj_height
+
+	# Encode position as color
 	# Java: (int) PApplet.map(value, 0, max, 0, 255) — truncates to int
 	x_color = int(line_x / size_x * 255)
 	z_color = int(line_z / size_z * 255)
 
 	# Map each pixel row to world Y
-	# row 0 = top of image = top of string (max projected height)
-	# row H = bottom of image = base of string (Y = 0)
-	y_world = proj_height * (1.0 - rows / screen_height)
+	# row 0 = top of image = yMax, row H = bottom of image = yMin
+	y_world = y_max - (y_max - y_min) * (rows / screen_height)
 
-	# Only encode pixels where the string is within the display volume
-	valid = (y_world >= 0) & (y_world <= size_y)
-
-	# Y encoding: 16-bit intent mapped to green channel
-	# Java: yColor = map(y, 0, sizeY, 0, 255*255); yColor1 = floor(yColor/255)
+	# Y encoding: 16-bit split across G (high byte) and A (low byte)
+	# Java: yColor = map(y, 0, sizeY, 0, 255*255)
+	#        yColor1 = floor(yColor / 255);  yColor2 = yColor - yColor1 * 255
 	y_color_full = (y_world / size_y) * 255.0 * 255.0
-	y_color = np.floor(y_color_full / 255.0).astype(np.int32)
-	y_color = np.clip(y_color, 0, 255).astype(np.uint8)
+	y_color_hi = np.floor(y_color_full / 255.0).astype(np.int32)
+	y_color_lo = (y_color_full - y_color_hi * 255.0).astype(np.int32)
+	y_color_hi = np.clip(y_color_hi, 0, 255).astype(np.uint8)
+	y_color_lo = np.clip(y_color_lo, 0, 255).astype(np.uint8)
 
-	# Fill the slice columns for valid rows
+	# Fill the slice columns for all rows
 	col_start = px_per_slice * i
 	col_end = col_start + px_per_slice
-	valid_rows = np.where(valid)[0]
-	map_img[valid_rows, col_start:col_end, 0] = x_color
-	map_img[valid_rows, col_start:col_end, 1] = y_color[valid_rows, np.newaxis]
-	map_img[valid_rows, col_start:col_end, 2] = z_color
+	map_img[:, col_start:col_end, 0] = x_color
+	map_img[:, col_start:col_end, 1] = y_color_hi[:, np.newaxis]
+	map_img[:, col_start:col_end, 2] = z_color
+	map_img[:, col_start:col_end, 3] = y_color_lo[:, np.newaxis]
 
 	if (i + 1) % 100 == 0:
 		print(f"\rProcessing string {i + 1}/{num_strings}...", end="", flush=True)
@@ -102,7 +112,7 @@ print(f"\rProcessed {num_strings} strings.                ")
 
 # Save PNG
 save_path = arg_path.replace("_strings.txt", f"_map_{screen_width}x{screen_height}.png")
-img = Image.fromarray(map_img, 'RGB')
+img = Image.fromarray(map_img, 'RGBA')
 img.save(save_path)
 
 print(f"Saved map texture ({screen_width}x{screen_height}) to {save_path}")

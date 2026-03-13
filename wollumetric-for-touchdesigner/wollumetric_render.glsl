@@ -80,9 +80,12 @@ void main()
     }
 
     // ── 2. Decode world-space position ─────────────────────────────────
-    //  Map texture stores normalised (x, y, z) as (R, G, B) in [0, 1].
+    //  Map texture stores position as RGBA:
+    //    R = x (normalised),  G = y high byte,  B = z (normalised),
+    //    A = y low byte.   Full y = (G + A / 255.0).
     //  Multiply by volume size to get world coordinates.
-    vec3 worldPos = mapColor.rgb * volSize;
+    vec3 mapValue = vec3(mapColor.r, mapColor.g + mapColor.a / 255.0, mapColor.b);
+    vec3 worldPos = mapValue * volSize;
 
     // ── 3. Check against the voxelised AABB ────────────────────────────
     vec3 meshMin = uMeshMin.xyz;

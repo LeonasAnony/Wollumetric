@@ -47,16 +47,26 @@ public class Line {
 	* @param  y1	Value 1
 	* @param  y2	Value 2
 	*/
+	private float getYMin() {
+		return wollumetric.vShiftAnchor * (wollumetric.size.y - projectedHeight);
+	}
+
+	private float getYMax() {
+		return getYMin() + projectedHeight;
+	}
+
 	public void draw(float y1, float y2) {
-		/* TODO DEBUG */
+		float yMin = getYMin();
+		float yMax = getYMax();
+
 		float top = y1 > y2 ? y1 : y2;
 		float bot = top == y1 ? y2 : y1;
-		float clampTop = Math.max(0, Math.min(projectedHeight, top));
-		float clampBot = Math.max(0, Math.min(projectedHeight, bot));
-	    float drawHeight = clampTop - clampBot;
+		float clampTop = Math.max(yMin, Math.min(yMax, top));
+		float clampBot = Math.max(yMin, Math.min(yMax, bot));
+		float drawHeight = clampTop - clampBot;
 
 		float rectTop = PApplet.map(clampTop,
-			projectedHeight, 0,
+			yMax, yMin,
 			0, Wollumetric.pApplet.height);
 		float rectHeight = PApplet.map(drawHeight,
 			0, projectedHeight,
@@ -82,6 +92,10 @@ public class Line {
 	public void renderMap(PGraphics mapBuffer) {
 		float effectiveX = getEffectiveScreenX();
 		int effectiveWidth = getEffectiveWidth();
+		float sizeY = wollumetric.size.y;
+		float yMin = getYMin();
+		float yMax = getYMax();
+
 		int xColor = (int) PApplet.map(	this.x,
 										0, wollumetric.size.x,
 										0, 255);
@@ -91,18 +105,14 @@ public class Line {
 		for (int i = 0; i < Wollumetric.pApplet.height; i++) {
 			float yForI = PApplet.map(	i,
 										0, Wollumetric.pApplet.height,
-										projectedHeight, 0);
-			if (yForI <= wollumetric.size.y) {
-				float yColor = PApplet.map(	yForI,
-											0, wollumetric.size.y,
-											0, 255 * 255);
-				int yColor1 = (int) Math.floor(yColor / 255.0f);
-		        // TODO -- this was redacted because PImage doesn't handle alpha like I want it to
-				//  int yColor2 = (int) (yColor % 255.0f);
-		        //int yColor2 = 255;
-		        mapBuffer.stroke(xColor, yColor1, zColor);
-		        mapBuffer.line(effectiveX, i, effectiveX + effectiveWidth, i);
-			}
+										yMax, yMin);
+			float yColor = PApplet.map(	yForI,
+										0, sizeY,
+										0, 255 * 255);
+			int yColor1 = (int) Math.floor(yColor / 255.0f);
+			int yColor2 = (int) (yColor - yColor1 * 255.0f);
+			mapBuffer.stroke(xColor, yColor1, zColor, yColor2);
+			mapBuffer.line(effectiveX, i, effectiveX + effectiveWidth, i);
 	    }
 	}
 }
