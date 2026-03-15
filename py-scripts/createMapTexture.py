@@ -3,7 +3,7 @@
 ### pixel as RGBA.  R = x, G = y (high byte), B = z, A = y (low byte).
 ###
 ### Usage:
-### 	python createMapTexture.py path/to/wiremap_strings.txt [bot|cen|top]
+### 	python createMapTexture.py path/to/wiremap_strings.txt
 
 import sys
 import os
