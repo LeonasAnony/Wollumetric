@@ -1,6 +1,6 @@
 # Wollumetric
 
-A toolkit for building and driving a **wiremap volumetric display** - a physical installation where hundreds of vertical strings are illuminated by a single projector to create true 3D images visible from multiple angles.
+A toolkit for building and driving a **volumetric display** - a physical installation where hundreds of vertical strings are illuminated by a single projector to create true 3D images.
 
 <!-- TODO: add hero photo/gif of the display in action -->
 
@@ -8,11 +8,11 @@ A toolkit for building and driving a **wiremap volumetric display** - a physical
 
 ## How It Works
 
-Two (Plexiglas) plates suspend strings at varying depths inside the volume created by them. A projector shines onto the strings from one side. Because each string sits at a known position on the rays from the projector, it can selectively light individual strings and on them vertical points in space - creating a volumetric display.
+Two (Plexiglas) plates suspend vertical strings at varying depths between them. A projector shines onto the strings from one side. Because each string sits at a known position on the rays from the projector, it can selectively light individual strings and on them vertical points in space - creating a volumetric display.
 
 <!-- TODO: add diagram showing projector → strings → viewer -->
 
-This project provides everything needed to **design** the string layout using Python scripts, **preview** it in a browser, and **render** 3D content onto the display using either [Processing](https://processing.org/) or [TouchDesigner](https://derivative.ca/).
+This project provides everything needed to **generate** the string layout using Python scripts, **preview** it in a browser, **construct** the physical display using Fusion 360, and **render** 3D content onto the display using either [Processing](https://processing.org/) or [TouchDesigner](https://derivative.ca/).
 
 ---
 
@@ -24,7 +24,7 @@ The paper ["Projection Volumetric Display using Passive Optical Scatterers"](htt
 
 The Processing library is adapted from Albert Hwang's [lumarca-for-processing](https://github.com/Albert/lumarca-for-processing), extended with mesh rendering and per-string calibration.
 
-The Python scripts for wiremap generation, the browser visualizer, and the TouchDesigner implementation are original work.
+The Python scripts for wiremap generation, the browser visualizer, the Fusion 360 Addin, and the TouchDesigner implementation are original work.
 
 ---
 
@@ -140,9 +140,11 @@ python py-scripts/createMapTexture.py wiremaps/<name>_strings.txt
 # > prints uVolumeSize values for the shader
 ```
 
-A TouchDesigner SOP render Component Wollumetric.tox is in the releases, it can be used for displaying any SOPs as wiremap content.
+A TouchDesigner SOP render Component `Wollumetric.tox` is in the releases, it can be used for displaying any SOPs as wiremap content. In the Components `Wolllumetric` Parameter Tab, set the output `Resolution`, the `mapTexture` to the generated map PNG, and paste the printed `uVolumeSize` values. The Parameter `Voxel Resolution` controls the density of the voxelisation, and thus the rendering quality.
 
-Alternatively you can manually set up the render network, see [wollumetric-for-touchdesigner/README.md](wollumetric-for-touchdesigner/README.md) for that.
+Alternatively you can manually set up the render network.
+
+See [wollumetric-for-touchdesigner/README.md](wollumetric-for-touchdesigner/README.md) for more details and manual setup instructions.
 
 ### 4. Manufacturing (Fusion 360)
 
@@ -167,7 +169,7 @@ angle  x  z  height
 | Field | Description |
 |-------|-------------|
 | `angle` | Horizontal angle from projector center (radians) |
-| `x` | World-space X position |
+| `x` | World-space X position (<0 = left, >0 = right) |
 | `z` | World-space Z depth (0 = near/projector side) |
 | `height` | Projected height on the string |
 
